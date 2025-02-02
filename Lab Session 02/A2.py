@@ -3,7 +3,7 @@ import numpy as np
 from google.colab import files
 
 file = pd.read_excel(r"/content/Lab Session Data.xlsx",sheet_name="Purchase data")
-xls = pd.ExcelFile(file_name)
+xls = pd.ExcelFile(r"/content/Lab Session Data.xlsx") 
 purchase_data = pd.read_excel(xls, sheet_name="Purchase data")
 purchase_data = purchase_data.iloc[:, :5]  
 purchase_data = purchase_data.drop(columns=["Customer"])  
