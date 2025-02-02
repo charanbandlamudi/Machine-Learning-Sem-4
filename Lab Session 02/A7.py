@@ -21,9 +21,9 @@ standard_scaler = StandardScaler()
 normalized_data = thyroid_data.copy()
 
 for col in numeric_cols:
-    if thyroid_data[col].skew() < 1:  # Normal distribution → Standard Scaling
+    if thyroid_data[col].skew() < 1:  
         normalized_data[col] = standard_scaler.fit_transform(thyroid_data[[col]])
-    else:  # Skewed distribution → Min-Max Scaling
+    else:  
         normalized_data[col] = minmax_scaler.fit_transform(thyroid_data[[col]])
 
 print("\nNormalization Completed!")
