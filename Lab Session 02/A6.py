@@ -20,17 +20,17 @@ plt.title("Boxplot to Detect Outliers")
 plt.show()
 
 for col in numeric_cols:
-    if thyroid_data[col].isnull().sum() > 0:  # Check if there are missing values
-        if thyroid_data[col].skew() < 1:  # No strong skewness, assume no outliers
-            thyroid_data[col].fillna(thyroid_data[col].mean(), inplace=True)  # Use Mean
+    if thyroid_data[col].isnull().sum() > 0:  
+        if thyroid_data[col].skew() < 1: 
+            thyroid_data[col].fillna(thyroid_data[col].mean(), inplace=True)  
         else:
-            thyroid_data[col].fillna(thyroid_data[col].median(), inplace=True)  # Use Median for outliers
+            thyroid_data[col].fillna(thyroid_data[col].median(), inplace=True)  
 
 print("\nMissing Values After Numeric Imputation:\n", thyroid_data.isnull().sum())
 
 for col in categorical_cols:
     if thyroid_data[col].isnull().sum() > 0:
-        thyroid_data[col].fillna(thyroid_data[col].mode()[0], inplace=True)  # Use Mode
+        thyroid_data[col].fillna(thyroid_data[col].mode()[0], inplace=True) 
 
 print("\nMissing Values After Categorical Imputation:\n", thyroid_data.isnull().sum())
 
