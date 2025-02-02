@@ -17,9 +17,9 @@ binary_cols = [
 
   if thyroid_data[col].dropna().apply(lambda x: x in (0, 1, 0.0, 1.0)).all()
 
-  and thyroid_data[col].dropna().nunique() <= 2 # Check for at most 2 unique values
+  and thyroid_data[col].dropna().nunique() <= 2 
 
-  and pd.api.types.is_numeric_dtype(thyroid_data[col]) # Check if the column is numeric
+  and pd.api.types.is_numeric_dtype(thyroid_data[col]) 
 
 ]
 
