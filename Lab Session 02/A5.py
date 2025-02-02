@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from google.colab import files
 
-file = pd.read_excel(r"/content/Lab Session Data.xlsx",sheet_name="thyroid0387_UCI")
+thyroid_data = pd.read_excel(r"/content/Lab Session Data.xlsx",sheet_name="thyroid0387_UCI")
 
 print(thyroid_data.head())
 
