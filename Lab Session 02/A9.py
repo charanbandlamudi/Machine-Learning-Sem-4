@@ -6,7 +6,7 @@ from google.colab import files
 file = pd.read_excel(r"/content/Lab Session Data.xlsx",sheet_name="thyroid0387_UCI")
 
 
-first_two_vectors = thyroid_data.iloc[:2]  # Select first two rows
+first_two_vectors = thyroid_data.iloc[:2]  
 
 numeric_data = first_two_vectors.select_dtypes(include=["int64", "float64"])
 
