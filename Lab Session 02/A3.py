@@ -1,24 +1,50 @@
+# Import necessary libraries
 import pandas as pd
-from sklearn.model_selection import train_test_split 
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics import classification_report
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, classification_report
 
-file = pd.read_excel(r"/content/Lab Session Data.xlsx",sheet_name="Purchase data")
+# Load the Excel file (Upload manually in Colab and update file path)
+from google.colab import files
+uploaded = files.upload()
 
-file['Customer'] = file['Payment (Rs)'].apply(lambda x: 'RICH' if x > 200 else 'POOR')
+# Get the uploaded filename
+file_name = list(uploaded.keys())[0]
 
-X = file[['Candies (#)', 'Mangoes (Kg)', 'Milk Packets (#)']]
+# Load the Excel file
+xls = pd.ExcelFile(file_name)
 
-Y = file['Customer' ] 
+# Load the "Purchase data" sheet
+purchase_data = pd.read_excel(xls, sheet_name="Purchase data")
 
-X_train,X_test,Y_train,Y_test = train_test_split(X,Y,test_size=0.5,random_state=42)
 
-classifier = KNeighborsClassifier(n_neighbors=5)
+purchase_data = purchase_data.iloc[:, :5]
+purchase_data = purchase_data.drop(columns=["Customer"])
 
-classifier.fit(X_train,Y_train)
 
-prediction = classifier.predict(X_test)
+purchase_data.columns = ["Candies", "Mangoes", "Milk_Packets", "Payment"]
 
-print("Classification Report")
 
-print(classification_report(Y_test,prediction))
+purchase_data["Category"] = (purchase_data["Payment"] > 200).astype(int)
+
+# Define features (X) and target variable (Y)
+X = purchase_data[["Candies", "Mangoes", "Milk_Packets"]].values
+Y = purchase_data["Category"].values
+
+# Split data into training and testing sets (80% train, 20% test)
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=42)
+
+# Train logistic regression model
+classifier = LogisticRegression()
+classifier.fit(X_train, Y_train)
+
+# Predict on test data
+Y_pred = classifier.predict(X_test)
+
+# Evaluate model performance
+accuracy = accuracy_score(Y_test, Y_pred)
+report = classification_report(Y_test, Y_pred)
+
+print("Model Accuracy:", accuracy)
+print("\nClassification Report:\n", report)
