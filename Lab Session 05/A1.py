@@ -29,6 +29,6 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 model_one_feature = LinearRegression().fit(X_train, y_train)
 
 # Output
-print("\n✅ Model Coefficient:", model_one_feature.coef_)
-print("✅ Model Intercept:", model_one_feature.intercept_)
+print("\n Model Coefficient:", model_one_feature.coef_)
+print("Model Intercept:", model_one_feature.intercept_)
 
