@@ -34,8 +34,8 @@ print("\nCosine Similarity between the first two observations:", round(cosine_si
 
 # Step 5: Interpretation
 if cosine_sim > 0.8:
-    print("✅ The vectors are highly similar.")
+    print("The vectors are highly similar.")
 elif cosine_sim > 0.5:
-    print("✅ The vectors have moderate similarity.")
+    print(" The vectors have moderate similarity.")
 else:
-    print("✅ The vectors are not very similar.")
+    print(" The vectors are not very similar.")
