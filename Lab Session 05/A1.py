@@ -30,5 +30,4 @@ model_one_feature = LinearRegression().fit(X_train, y_train)
 
 # Output
 print("\n Model Coefficient:", model_one_feature.coef_)
-print("Model Intercept:", model_one_feature.intercept_)
-
+print(" Model Intercept:", model_one_feature.intercept_)
