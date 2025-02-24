@@ -1,80 +1,64 @@
-import statistics
+# Import necessary libraries
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-import math
+import statistics
+from google.colab import files
 
-file = pd.read_excel(r"/content/Lab Session Data.xlsx" , sheet_name="IRCTC Stock Price")
+# Upload the Excel file
+uploaded = files.upload()
 
-column_D = file.iloc[: , 3]
+# Get the uploaded filename
+file_name = list(uploaded.keys())[0]
 
-print(f"D = {column_D}")
+# Load the Excel file
+xls = pd.ExcelFile(file_name)
 
-mean = statistics.mean(column_D)
+# Load the "IRCTC Stock Price" sheet
+stock_data = pd.read_excel(xls, sheet_name="IRCTC Stock Price")
 
-print(f"the mean of column D is = {mean}")
+# Calculate Mean & Variance of Price Data (Column D)
+price_mean = statistics.mean(stock_data.iloc[:, 3])  # Column D (Index 3)
+price_variance = statistics.variance(stock_data.iloc[:, 3])
 
-variance = statistics.variance(column_D)
+print(f"Mean of Price Data: {price_mean}")
+print(f"Variance of Price Data: {price_variance}")
+# Convert 'Date' column to datetime format
+stock_data["Date"] = pd.to_datetime(stock_data["Date"])
 
-print(f"the variance of column D is = {variance}")
+# Extract 'Day of Week' from Date
+stock_data["Day"] = stock_data["Date"].dt.day_name()
 
-file["Date"] = pd.to_datetime(file["Date"])
+# Filter data for Wednesdays
+wednesday_data = stock_data[stock_data["Day"] == "Wednesday"]
 
-file["weekday"] = file["Date"].dt.weekday
+# Calculate mean for Wednesdays
+wednesday_mean = statistics.mean(wednesday_data.iloc[:, 3])
 
-wednesdays = file[file['weekday'] == 2]
+print(f"Mean for Wednesdays: {wednesday_mean}")
+print(f"Difference from Population Mean: {abs(price_mean - wednesday_mean)}")
 
-wednesdays_price = wednesdays['Price']
+# Filter data for April
+april_data = stock_data[stock_data["Date"].dt.month == 4]
 
-wednesday_mean = wednesdays_price.mean()
+# Calculate mean for April
+april_mean = statistics.mean(april_data.iloc[:, 3])
 
-print(f"The sample mean of for all Wednesdays in the dataset is = {wednesday_mean}")
+print(f"Mean for April: {april_mean}")
+print(f"Difference from Population Mean: {abs(price_mean - april_mean)}")
 
-file['Month'] = file["Date"].dt.month
+# Probability of Making a Loss
+loss_probability = sum(stock_data.iloc[:, 8] < 0) / len(stock_data)  # Column I (Index 8)
 
-April_data = file[file["Month"]==4]
+print(f"Probability of Making a Loss: {loss_probability}")
 
-April_mean = statistics.mean(April_data['Price'])
+# Probability of Making a Profit on Wednesday
+profit_wednesday = sum(wednesday_data.iloc[:, 8] > 0) / len(wednesday_data)
 
-print(f"The sample mean of for April in the dataset is = {April_mean}")
+print(f"Probability of Making a Profit on Wednesday: {profit_wednesday}")
 
-loss = lambda x:x<0 
+# Total number of profit days
+profit_days = sum(stock_data.iloc[:, 8] > 0)
 
-loss_count = (file['Chg%'] <0).sum()
+# Conditional Probability of Profit Given it's Wednesday
+conditional_prob = profit_wednesday * (len(wednesday_data) / len(stock_data))
 
-total = len(file)
-
-probablity = loss_count/total
-
-print(f"the probability of making loss in the stock is {probablity}")
-
-profit = lambda x:x>0
-
-profit_count = (file.loc[file['weekday'] == 2 , 'Chg%'] > 0).sum()
-
-probablity_wed = profit_count/total
-
-print(f"the probability of making profit in the stock on wednesday is {probablity_wed}")
-
-profit_wednesday = wednesdays[wednesdays['Chg%'] > 0]
-
-num_profit_wednesdays = len(profit_wednesday)
-
-total_wed = len(wednesdays)
-
-conditional_prob_wed = num_profit_wednesdays/total_wed
-
-print(f"The cnditional probablity of making profit, given that today is wednesday = {conditional_prob_wed}")
-
-file["Day_of_week"] = file['Date'].dt.weekday
-
-sns.scatterplot(x="Day_of_week", y="Chg%", data=file, hue="Day_of_week", palette="hls")
-
-plt.xlabel("Day(of the week)")
-
-plt.ylabel("Chg%")
-
-plt.title("Chg% Distribution against the day of the week")
-
-plt.show()
+print(f"Conditional Probability of Profit Given it's Wednesday: {conditional_prob}")
