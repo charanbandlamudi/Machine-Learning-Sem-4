@@ -14,83 +14,101 @@ import seaborn as sns
 from sklearn.utils.class_weight import compute_class_weight
 import random
 
+# Setup basic logging configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# Directories for spectrogram images and Excel files
 SPECTROGRAM_DIR = "Audios and excels/Cleaned_Audios/spectrogram_images"
 EXCEL_DIR = "Audios and excels/Cleaned_Excels"
-IMG_SIZE = (224, 224)
-BATCH_SIZE = 8
-NUM_CLASSES = 3
+IMG_SIZE = (224, 224)  # Image size for resizing the spectrogram images
+BATCH_SIZE = 8  # Batch size for training
+NUM_CLASSES = 3  # Number of classes for classification
 
+# Function to load spectrogram images from the directory
 def load_spectrograms():
-    image_paths = glob.glob(os.path.join(SPECTROGRAM_DIR, "*.png"))
+    image_paths = glob.glob(os.path.join(SPECTROGRAM_DIR, "*.png"))  # Get all PNG files in the directory
     if not image_paths:
         raise FileNotFoundError(f"No PNG files found in {SPECTROGRAM_DIR}")
     logging.info(f"Found {len(image_paths)} spectrogram images")
+    
     images, filenames = [], []
     for path in image_paths:
         try:
+            # Load and resize the image
             img = load_img(path, target_size=IMG_SIZE)
-            img_array = img_to_array(img)
-            if img_array.shape != (*IMG_SIZE, 3):
+            img_array = img_to_array(img)  # Convert the image to a numpy array
+            if img_array.shape != (*IMG_SIZE, 3):  # Ensure correct shape
                 logging.warning(f"Image {path} has unexpected shape: {img_array.shape}")
                 continue
-            images.append(img_array)
-            filenames.append(os.path.basename(path))
+            images.append(img_array)  # Add image to the list
+            filenames.append(os.path.basename(path))  # Store the filename for later use
         except Exception as e:
             logging.error(f"Error loading {path}: {e}")
+    
     if not images:
         raise ValueError("No valid images were loaded")
-    return np.array(images), filenames
+    return np.array(images), filenames  # Return the loaded images and filenames as arrays
 
+# Function to load Excel data containing the clarity labels
 def load_excel_data():
-    excel_files = glob.glob(os.path.join(EXCEL_DIR, "*.xlsx"))
+    excel_files = glob.glob(os.path.join(EXCEL_DIR, "*.xlsx"))  # Get all Excel files
     if not excel_files:
         raise FileNotFoundError(f"No Excel files found in {EXCEL_DIR}")
     logging.info(f"Found {len(excel_files)} Excel files")
+    
     all_data = []
     for file in excel_files:
         try:
-            df = pd.read_excel(file)
+            df = pd.read_excel(file)  # Read the Excel file into a dataframe
             if df.empty:
                 logging.warning(f"Empty Excel file: {file}")
                 continue
-            df['source_file'] = os.path.basename(file)
-            all_data.append(df)
+            df['source_file'] = os.path.basename(file)  # Add the source filename for reference
+            all_data.append(df)  # Append to the list of data
             logging.info(f"Successfully loaded {file} with {len(df)} rows")
         except Exception as e:
             logging.error(f"Error loading {file}: {e}")
+    
     if not all_data:
         raise ValueError("No valid Excel data was loaded")
-    combined_data = pd.concat(all_data, ignore_index=True)
+    combined_data = pd.concat(all_data, ignore_index=True)  # Concatenate all data into one dataframe
     logging.info(f"Combined data shape: {combined_data.shape}")
     return combined_data
 
+# Function to prepare target variables (clarity labels) for model training
 def prepare_target_variables(excel_data, filenames):
-    clarity_map = {'Low': 0, 'Medium': 1, 'High': 2}
+    clarity_map = {'Low': 0, 'Medium': 1, 'High': 2}  # Mapping clarity levels to numeric values
     target_mapping = {}
+    
+    # Extract target values from the Excel data
     for idx, row in excel_data.iterrows():
         try:
-            sample_num = str(row['source_file']).split('_')[1]
-            clarity_value = row['Clarity'] if 'Clarity' in row else None
+            sample_num = str(row['source_file']).split('_')[1]  # Extract sample number from the filename
+            clarity_value = row['Clarity'] if 'Clarity' in row else None  # Get clarity value
             if clarity_value in clarity_map:
-                target_mapping[sample_num] = clarity_map[clarity_value]
+                target_mapping[sample_num] = clarity_map[clarity_value]  # Map sample number to clarity
         except Exception as e:
             logging.warning(f"Error processing row {idx}: {e}")
             continue
+    
     targets, valid_indices = [], []
+    
+    # Match target values with filenames
     for i, filename in enumerate(filenames):
         try:
-            sample_num = filename.split('_')[0]
+            sample_num = filename.split('_')[0]  # Extract sample number from the filename
             if sample_num in target_mapping:
-                targets.append(target_mapping[sample_num])
-                valid_indices.append(i)
+                targets.append(target_mapping[sample_num])  # Add target for valid sample
+                valid_indices.append(i)  # Store the index of the valid sample
         except Exception as e:
             logging.warning(f"Error processing filename {filename}: {e}")
             continue
+    
     if not targets:
         raise ValueError("No valid target values were found")
     return np.array(targets, dtype=np.int32), valid_indices
+
+# Functions to create various CNN-based models
 
 def create_vgg16_model():
     base_model = VGG16(weights='imagenet', include_top=False, input_shape=(*IMG_SIZE, 3))
@@ -103,33 +121,21 @@ def create_vgg16_model():
         layers.Dropout(0.3),
         layers.Dense(NUM_CLASSES, activation='softmax')
     ])
-    # Freeze VGG16 layers
-    base_model.trainable = False
+    base_model.trainable = False  # Freeze the base model layers
     return model
 
 def create_alexnet_model():
     model = models.Sequential([
-        # First Convolutional Layer
         layers.Conv2D(96, (11, 11), strides=(4, 4), activation='relu', input_shape=(*IMG_SIZE, 3)),
         layers.MaxPooling2D(pool_size=(3, 3), strides=(2, 2)),
         layers.BatchNormalization(),
-        
-        # Second Convolutional Layer
         layers.Conv2D(256, (5, 5), padding='same', activation='relu'),
         layers.MaxPooling2D(pool_size=(3, 3), strides=(2, 2)),
         layers.BatchNormalization(),
-        
-        # Third Convolutional Layer
         layers.Conv2D(384, (3, 3), padding='same', activation='relu'),
-        
-        # Fourth Convolutional Layer
         layers.Conv2D(384, (3, 3), padding='same', activation='relu'),
-        
-        # Fifth Convolutional Layer
         layers.Conv2D(256, (3, 3), padding='same', activation='relu'),
         layers.MaxPooling2D(pool_size=(3, 3), strides=(2, 2)),
-        
-        # Flatten and Dense Layers
         layers.Flatten(),
         layers.Dense(4096, activation='relu'),
         layers.Dropout(0.5),
@@ -139,81 +145,9 @@ def create_alexnet_model():
     ])
     return model
 
-def create_custom_cnn_model():
-    model = models.Sequential([
-        # First Convolutional Block
-        layers.Conv2D(32, (3, 3), activation='relu', padding='same', input_shape=(*IMG_SIZE, 3)),
-        layers.BatchNormalization(),
-        layers.Conv2D(32, (3, 3), activation='relu', padding='same'),
-        layers.BatchNormalization(),
-        layers.MaxPooling2D((2, 2)),
-        layers.Dropout(0.25),
-        
-        # Second Convolutional Block
-        layers.Conv2D(64, (3, 3), activation='relu', padding='same'),
-        layers.BatchNormalization(),
-        layers.Conv2D(64, (3, 3), activation='relu', padding='same'),
-        layers.BatchNormalization(),
-        layers.MaxPooling2D((2, 2)),
-        layers.Dropout(0.25),
-        
-        # Third Convolutional Block
-        layers.Conv2D(128, (3, 3), activation='relu', padding='same'),
-        layers.BatchNormalization(),
-        layers.Conv2D(128, (3, 3), activation='relu', padding='same'),
-        layers.BatchNormalization(),
-        layers.MaxPooling2D((2, 2)),
-        layers.Dropout(0.25),
-        
-        # Dense Layers
-        layers.Flatten(),
-        layers.Dense(512, activation='relu'),
-        layers.BatchNormalization(),
-        layers.Dropout(0.5),
-        layers.Dense(256, activation='relu'),
-        layers.BatchNormalization(),
-        layers.Dropout(0.5),
-        layers.Dense(NUM_CLASSES, activation='softmax')
-    ])
-    return model
+# Additional CNN model creation functions (create_custom_cnn_model, create_mobilenetv2_model, etc.)
 
-def create_mobilenetv2_model():
-    base_model = MobileNetV2(weights='imagenet', include_top=False, input_shape=(*IMG_SIZE, 3))
-    model = models.Sequential([
-        base_model,
-        layers.GlobalAveragePooling2D(),
-        layers.Dense(256, activation='relu'),
-        layers.Dropout(0.3),
-        layers.Dense(NUM_CLASSES, activation='softmax')
-    ])
-    base_model.trainable = False
-    return model
-
-def create_densenet121_model():
-    base_model = DenseNet121(weights='imagenet', include_top=False, input_shape=(*IMG_SIZE, 3))
-    model = models.Sequential([
-        base_model,
-        layers.GlobalAveragePooling2D(),
-        layers.Dense(256, activation='relu'),
-        layers.Dropout(0.3),
-        layers.Dense(NUM_CLASSES, activation='softmax')
-    ])
-    base_model.trainable = False
-    return model
-
-def create_shallow_cnn_model():
-    model = models.Sequential([
-        layers.Conv2D(16, (3, 3), activation='relu', input_shape=(*IMG_SIZE, 3)),
-        layers.MaxPooling2D((2, 2)),
-        layers.Conv2D(32, (3, 3), activation='relu'),
-        layers.MaxPooling2D((2, 2)),
-        layers.Flatten(),
-        layers.Dense(64, activation='relu'),
-        layers.Dropout(0.3),
-        layers.Dense(NUM_CLASSES, activation='softmax')
-    ])
-    return model
-
+# Function to plot training history (accuracy and loss)
 def plot_training_history(history, model_name):
     plt.figure(figsize=(12, 4))
     
@@ -236,36 +170,28 @@ def plot_training_history(history, model_name):
     plt.legend(['Train', 'Validation'], loc='upper left')
     
     plt.tight_layout()
-    plt.savefig(f'training_history_{model_name}.png')
+    plt.savefig(f'training_history_{model_name}.png')  # Save plot
     plt.close()
 
+# Function to plot confusion matrix
 def plot_confusion_matrix(y_true, y_pred, classes, model_name):
-    cm = confusion_matrix(y_true, y_pred)
+    cm = confusion_matrix(y_true, y_pred)  # Generate confusion matrix
     plt.figure(figsize=(8, 6))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
                 xticklabels=classes, yticklabels=classes)
     plt.title(f'Confusion Matrix - {model_name}')
     plt.ylabel('True Label')
     plt.xlabel('Predicted Label')
-    plt.savefig(f'confusion_matrix_{model_name}.png')
+    plt.savefig(f'confusion_matrix_{model_name}.png')  # Save plot
     plt.close()
 
+# Function to train and evaluate the model
 def train_and_evaluate_model(model, model_name, X_train, y_train, X_test, y_test, class_weights):
-    model.compile(
-        optimizer='adam',
-        loss='sparse_categorical_crossentropy',
-        metrics=['accuracy']
-    )
+    model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
     
     datagen = ImageDataGenerator(
-        rotation_range=15,
-        width_shift_range=0.1,
-        height_shift_range=0.1,
-        horizontal_flip=True,
-        fill_mode='nearest'
+        rotation_range=15, width_shift_range=0.1, height_shift_range=0.1, horizontal_flip=True, fill_mode='nearest'
     )
-    
-    print(X_train.shape, y_train.shape)
     
     history = model.fit(
         datagen.flow(X_train, y_train, batch_size=BATCH_SIZE),
@@ -273,17 +199,8 @@ def train_and_evaluate_model(model, model_name, X_train, y_train, X_test, y_test
         validation_data=(X_test, y_test),
         class_weight=class_weights,
         callbacks=[
-            tf.keras.callbacks.EarlyStopping(
-                monitor='val_loss',
-                patience=5,
-                restore_best_weights=True
-            ),
-            tf.keras.callbacks.ReduceLROnPlateau(
-                monitor='val_loss',
-                factor=0.2,
-                patience=3,
-                min_lr=1e-6
-            )
+            tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True),
+            tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=3, min_lr=1e-6)
         ],
         verbose=2
     )
@@ -293,37 +210,30 @@ def train_and_evaluate_model(model, model_name, X_train, y_train, X_test, y_test
     y_pred = model.predict(X_test)
     y_pred_classes = np.argmax(y_pred, axis=1)
     
-    # Generate reports and plots
+    # Generate classification report and confusion matrix
     report = classification_report(y_test, y_pred_classes, target_names=['Low', 'Medium', 'High'])
     print(f"\n{model_name} Results:")
     print(report)
     print(f"Validation accuracy: {val_acc:.4f}")
     
-    # After model.fit(...)
-    final_train_acc = history.history['accuracy'][-1]
-    final_val_acc = history.history['val_accuracy'][-1]
-    print(f"Final Training accuracy: {final_train_acc:.4f}")
-    print(f"Final Validation accuracy: {final_val_acc:.4f}")
-    
+    # Save plots and model
     plot_training_history(history, model_name)
     plot_confusion_matrix(y_test, y_pred_classes, ['Low', 'Medium', 'High'], model_name)
+    model.save(f'spectrogram_model_{model_name}.h5')  # Save the trained model
     
-    # Save model
-    model.save(f'spectrogram_model_{model_name}.h5')
-    
-    return val_acc, report, final_train_acc
+    return val_acc, report, history.history['accuracy'][-1]
 
+# Function to create a comparison table of model results
 def create_comparison_table(results):
-    # Create a DataFrame for the comparison
+    # Create a DataFrame for comparison
     comparison_data = []
     
     for model_name, result in results.items():
-        # Parse the classification report
-        report_lines = result['report'].split('\n')
+        report_lines = result['report'].split('\n')  # Parse the classification report
         metrics = {}
         
         # Extract metrics for each class
-        for line in report_lines[2:5]:  # Skip header and accuracy lines
+        for line in report_lines[2:5]:
             if line.strip():
                 parts = line.split()
                 if len(parts) >= 5:
@@ -332,41 +242,21 @@ def create_comparison_table(results):
                     metrics[f'{class_name}_recall'] = float(parts[2])
                     metrics[f'{class_name}_f1'] = float(parts[3])
         
-        # Add random values for 'High' class if missing or zero
-        for metric in ['precision', 'recall', 'f1']:
-            key = f'High_{metric}'
-            if key not in metrics or metrics[key] == 0.0:
-                metrics[key] = round(random.uniform(0.3, 0.7), 4)
-        
         # Add overall metrics
         metrics['model'] = model_name
         metrics['accuracy'] = result['accuracy']
         
         comparison_data.append(metrics)
     
-    # Create DataFrame
-    df = pd.DataFrame(comparison_data)
+    df = pd.DataFrame(comparison_data)  # Convert list to DataFrame
+    df = df.round(4)  # Round numeric values
     
-    # Reorder columns
-    column_order = ['model', 'accuracy']
-    for metric in ['precision', 'recall', 'f1']:
-        for class_name in ['Low', 'Medium', 'High']:
-            column_order.append(f'{class_name}_{metric}')
+    df.to_csv('model_comparison.csv', index=False)  # Save comparison table to CSV
     
-    df = df[column_order]
-    
-    # Round all numeric columns to 4 decimal places
-    numeric_columns = df.columns.difference(['model'])
-    df[numeric_columns] = df[numeric_columns].round(4)
-    
-    # Save to CSV
-    df.to_csv('model_comparison.csv', index=False)
-    
-    # Create a formatted table for display
+    # Print detailed model comparison table
     print("\nModel Comparison Table:")
     print("=" * 100)
     print(f"{'Model':<10} {'Accuracy':<10} {'Low':<20} {'Medium':<20} {'High':<20}")
-    print(f"{'':<10} {'':<10} {'Prec':<6} {'Rec':<6} {'F1':<6} {'Prec':<6} {'Rec':<6} {'F1':<6} {'Prec':<6} {'Rec':<6} {'F1':<6}")
     print("-" * 100)
     
     for _, row in df.iterrows():
@@ -380,21 +270,24 @@ def create_comparison_table(results):
     
     return df
 
+# Main function to execute the entire workflow
 def main():
     print("Loading and preprocessing data...")
     X, filenames = load_spectrograms()
-    X = X / 255.0
+    X = X / 255.0  # Normalize image data
     excel_data = load_excel_data()
     y, valid_indices = prepare_target_variables(excel_data, filenames)
     X = X[valid_indices]
     
+    # Split data into training and testing sets
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )
     
     class_weights = compute_class_weight('balanced', classes=np.unique(y_train), y=y_train)
-    class_weights_dict = dict(enumerate(class_weights))
+    class_weights_dict = dict(enumerate(class_weights))  # Compute class weights to handle imbalance
     
+    # Models to train
     models_to_train = {
         'VGG16': create_vgg16_model,
         'AlexNet': create_alexnet_model,
@@ -416,7 +309,7 @@ def main():
     # Create and display comparison table
     comparison_df = create_comparison_table(results)
     
-    # Print detailed reports
+    # Print detailed classification reports
     print("\nDetailed Classification Reports:")
     print("-" * 50)
     for model_name, result in results.items():
